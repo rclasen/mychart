@@ -1,0 +1,76 @@
+
+- draw to user-specified cairo surface (so the user has full choice of
+  output)
+- has to be *fast*
+- must be easy to use on / port to win32 (primary target: *nix)
+- initially in perl, later in C + perl bindings
+- interactive support
+  - fast redraw on resize
+  - fast redraw on un-/zoom
+  - fast redraw on move of viewport (when zoomed in)
+  - fast redraw on dataset modification (i.e. update only one graph)
+  - fast redraw on tuple modification (later)
+  - "live" datasets (later)
+  - translate cursor coordinats to data "coordinates"
+  - hitareas for graphs + elements (labels, scales, legend) (later)
+
+- charts:
+  - pies (later)
+  - polars (later)
+    - points
+    - line
+    - linepoints
+    - combined
+  - cartesian 3D  (later)
+    - surfaces
+    - shade
+  - cartesian 2D
+    - plot types:
+      - points
+      - line (+point)
+      - stacked lines
+      - area
+      - stacked area
+      - bars
+      - stacked bars
+      - combined
+      - scatter (later)
+      - countour (later)
+      - paths (later)
+    - "unlimited" axises per chart
+      - custom placement of axises (top/zero/bottom, left/zero/right)
+      - 2 scales per axis (left/right, above/below)
+        - bind scales to any axis (i.e. x to a vertical one)
+        - choice of x and y scale per dataset
+        - per tuple scales (bargraphs, ...)
+        - numeric scales:
+          - linear
+          - logarithmic
+        - draw major/minor tics:
+          - at specified positions
+          - from number of tics
+          - from distance of tics
+          - tick labels:
+            - at specified tics
+            - handle labels that would overlap (skip, indent, ...)
+            - customizable formatting
+	    - adjustable orientation
+
+
+cache graphs:
+- draw each graph to it's own surface
+  - get data-sources' min/max
+  - prepare line type parameters (color, solid/dashed/..., brush)
+  - for each data set:
+    - calc surface coords
+    - plot segment
+    - remeber path for hitarea
+
+after resize / zoom / movement of a graph:
+- calculate number of required axis labels and ticks
+- generate axis labels and get their size
+- generate legend box and get it's size
+- calculate (remaining) plot area size
+- draw axises, add labels
+- draw resized (part?) graph_surfaces into plot area
+

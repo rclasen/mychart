@@ -1,0 +1,16 @@
+Source: mychart
+Section: perl
+Priority: optional
+Build-Depends: debhelper (>= 5.0.0)
+Build-Depends-Indep: perl (>= 5.8.8-7etch1)
+Maintainer: Rainer Clasen <bj@zuto.de>
+Standards-Version: 3.7.2
+
+Package: mychart
+Architecture: all
+Depends: ${perl:Depends}, ${misc:Depends}, 
+Description: mychart graphing library
+ Perl library for fast plotting of charts/graph using the Cairo
+ graphics library. It supports all of cairo's output targets and comes
+ with optimizations for interactive use (resize, zoom, caching for partial
+ redraws). There's also a prebuilt Gtk2 Widget.

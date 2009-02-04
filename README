@@ -1,0 +1,31 @@
+MyChart
+=======
+
+this module provides fast plotting of charts/graph using the Cairo
+graphics library. It supports all of cairo's output targets and comes with
+optimizations for interactive use (resize, zoom, caching for partial
+redraws). There's also a prebuilt Gtk2 Widget.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+    Cairo - as perl module
+
+To use the provied MyChart::Gtk widget, you also need
+
+    Gtk2 - as perl module
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2008 by Rainer Clasen
+please find the details in the file "LICENSE".
