@@ -12,6 +12,8 @@ package MyChart::Plot;
 use strict;
 use warnings;
 use Carp;
+use Data::Dumper;
+use Math::Trig qw/ pi /;
 
 sub new {
 	my( $proto, $a ) = @_;
@@ -28,30 +30,42 @@ sub new {
 			$a->{ycol},	# yaxis
 		],
 
+		# chart properties
+		context	=> undef,
+
+		# scale properties:
+		rotate	=> 0,
+
 		$a ? %$a : (),
 
 		# plot parameter
-		rootx	=> 0,
-		rooty	=> 0,
-		width	=> 0,
-		height	=> 0,
+		plot_size	=> undef,
 
-		bounds	=> [
-			{ # xaxis
-				min	=> undef,
-				max	=> undef,
-			},
-			{ # yaxis
-				min	=> undef,
-				max	=> undef,
-			},
-		],
+		# source parameter
+		bounds	=> [{			# xaxis
+			min	=> undef,
+			max	=> undef,
+			invert	=> 0,
+		}, {				# yaxis
+			min	=> undef,
+			max	=> undef,
+			invert	=> 0,
+		}],
 
 		# local data
 		matrix	=> undef,
 		path	=> undef,
 
 	}, ref $proto || $proto;
+}
+
+sub rotate { $_[0]->{rotate}; }
+
+sub flush {
+	my( $self ) = @_;
+
+	$self->{matrix} = undef;
+	$self->{path} = undef;
 }
 
 sub set_source {
@@ -61,35 +75,40 @@ sub set_source {
 	$self->{source} = $source;
 	$self->set_view_bounds;
 	@{$self->{column}} = ( $xcol, $ycol );
+
 	$self->{matrix} = undef;
 	$self->{path} = undef;
 }
 
-sub set_size {
-	my( $self, $rx, $ry, $w, $h ) = @_;
+sub set_context {
+	my( $self, $context ) = @_;
+
+	$self->{context} = $context;
+}
+
+sub set_plot_size {
+	my( $self, $plot_size ) = @_;
 
 	#print STDERR ref($self) ."::set_size $rx $ry $w $h\n";
+	$self->{plot_size} = [ @$plot_size ];
+
+	# clear cache:
 	$self->{matrix} = undef;
-	$self->{rootx} = $rx,
-	$self->{rooty} = $ry,
-	$self->{width} = $w;
-	$self->{height} = $h;
 }
 
 sub get_source_bounds {
 	my( $self, $dim ) = @_;
 
-	# TODO: rotate?
 	$self->{source}->bounds( $self->{column}[$dim] );
 }
 
 sub set_view_bounds {
-	my( $self, $dim, $min, $max ) = @_;
+	my( $self, $dim, $min, $max, $invert ) = @_;
 
-	# TODO: rotate?
 	$self->{bounds}[$dim] = {
 		min	=> $min,
 		max	=> $max,
+		invert	=> $invert,
 	};
 	$self->{matrix} = undef;
 }
@@ -97,58 +116,78 @@ sub set_view_bounds {
 sub get_view_bounds {
 	my( $self, $dim ) = @_;
 
-	@{$self->{bounds}[$dim]}{qw( min max )};
+	@{$self->{bounds}[$dim]}{qw( min max invert )};
 }
 
 sub build_matrix {
 	my( $self ) = @_;
 
-	my( $rx, $ry, $w, $h ) = @{$self}{qw(rootx rooty width height)};
 
-	my( $xmin, $xmax ) = $self->get_view_bounds(0);
-	my $xlen = $xmax - $xmin || 1;
-	my $xdelta = $self->{source}->delta( $self->{column}[0] );
+	my $cr = $self->{context};
 
-	my( $ymin, $ymax ) = $self->get_view_bounds(1);
-	my $ylen = $ymax - $ymin || 1;
-	my $ydelta = $self->{source}->delta( $self->{column}[1] );
+	$cr->save;
 
-	#print STDERR ref($self)."::matrix $xlen, $xdelta, $ylen, $ydelta\n";
-	Cairo::Matrix->init( 
-		$w / $xlen,		0, 
-		0,			-$h/$ylen, 
-		$rx-$w * ($xmin+$xdelta)/$xlen,
-					$ry+$h * ($ymax+$ydelta)/$ylen );
+	# device coords:
+	my( $l, $t, $r, $b ) = @{ $self->{plot_size} };
 
+	my @d = ( 
+		[ $l, $r ],
+		[ $b, $t ],
+	);
+	my @r = $self->{rotate} ? reverse @d : @d; 
+
+	# data coords:
+	my @u = map { { %$_ }; } @{$self->{bounds}};
+
+	# invert device axis coords
+	foreach( 0 .. 1 ){
+		@{$r[$_]} = reverse @{$r[$_]} if $u[$_]{invert};
+	}
+
+	# move 0/0 to proper plot corner
+	$cr->translate( $d[0][0], $d[1][0] );
+
+	# swap axises by rotating left by 90° and invert proper axis
+	if( $self->{rotate} ){
+		$cr->rotate( pi/2 );
+		$cr->scale( 1, -1 );
+	}
+
+	# invert/scale user scale;
+	my @scale = (
+		($r[0][1]-$r[0][0]) / ($u[0]{max} - $u[0]{min}),
+		($r[1][1]-$r[1][0]) / ($u[1]{max} - $u[1]{min}),
+	);
+	$cr->scale( @scale );
+
+	# data offset:
+	$cr->translate( -$u[0]{min}, -$u[1]{min} );
+
+	my $matrix = $cr->get_matrix;
+	$cr->restore;
+	$matrix;
 }
+
 
 sub translate {
-	my( $self, $cr ) = @_;
+	my( $self ) = @_;
 
-	$self->{matrix} = $self->build_matrix; # TODO: build_matrix_rotate
-	$cr->transform( $self->{matrix} );
+	$self->{matrix} = $self->build_matrix;
+	$self->{context}->transform( $self->{matrix} );
+	$self->dump_coord if $self->{ycol} eq 'hr';
 }
-
-sub path {
-	my( $self, $cr ) = @_;
-
-	$self->{path} ||= $self->build_path( $cr );
-	$self->{path};
-}
-
-sub build_path {
-	my( $self, $cr ) = @_;
-	croak "virtual method";
-}
-
-# TODO: alternate build_path methods for sources other than arrays of hashes
 
 sub dump_coord {
-	my( $self, $cr ) = @_;
+	my( $self ) = @_;
 
+	my $cr = $self->{context};
 	my( $xmin, $xmax ) = $self->get_source_bounds(0);
 	my( $ymin, $ymax ) = $self->get_source_bounds(1);
 
+	print STDERR ref($self),"::coords: ", join(" ", map { int( ($_||0) +0.5) } (
+		$xmin||0, $ymin||0,
+		$xmax||0, $ymax||0,
+	) ), "\n";
 	print STDERR ref($self),"::coords: ", join(" ", map { int( ($_||0) +0.5) } (
 		$cr->user_to_device( $xmin||0, $ymin||0 ),
 		$cr->user_to_device( $xmax||0, $ymax||0 ) 
@@ -156,25 +195,39 @@ sub dump_coord {
 }
 
 
-sub plot {
-	my( $self, $cr ) = @_;
 
-	#print STDERR ref($self) ."::plot\n";
+# TODO: alternate build_path methods for sources other than arrays of hashes
+sub build_path_loh {
+	my( $self ) = @_;
+	croak "virtual method";
+}
+
+sub path {
+	my( $self ) = @_;
+
+	$self->{path} ||= $self->build_path_loh( $self->{context} );
+	$self->{path};
+}
+
+
+sub draw {
+	my( $self ) = @_;
+
+	#print STDERR ref($self) ."::draw $self->{ycol}\n";
+	my $cr = $self->{context};
 	$cr->save;
 
 	$cr->save;
-	$self->translate( $cr );
-	#$self->dump_coord( $cr );
-	$cr->append_path( $self->path( $cr ) );
+	$self->translate;
+	$cr->append_path( $self->path );
 	$cr->restore;
 
-	$cr->set_source_rgb( @{$self->{color}} );
-	$self->do_plot( $cr );
+	$self->do_plot;
 	$cr->restore;
 }
 
 sub do_plot {
-	my( $self, $cr ) = @_;
+	my( $self ) = @_;
 	croak "virtual method";
 }
 

@@ -5,14 +5,15 @@ use Carp;
 
 sub new {
 	my( $proto, $a ) = @_;
+
+	# ATTENTION: some defaults are overwritten from MyChart::add_scale()
 	bless { 
-		dimension	=> 1,		# 0=horiz, 1=vertical
 		position	=> 1,		# 0=zero, 1=left/bottom, 2=right/top, undef=hide
 		inside		=> undef,	# undef=auto, 0=outside 1=inside
 
 		min		=> undef,	# override range guessing
 		max		=> undef,	# override range guessing
-		invert		=> 0,		# TODO: count from max to min
+		invert		=> 0,		# count from max to min
 
 		tic_at		=> undef,	# 1. use predefined list of X
 		tic_num		=> 0,		# or 2. number of tics to draw
@@ -33,25 +34,32 @@ sub new {
 		label_rotate	=> 0,		# 0=horiz, 1=vertical
 		label_space	=> 4,		# space between label + margin
 
-		ax_label	=> undef,
-		ax_label_fg	=> [0,0,0],
-		ax_label_font	=> 'Sans 8',
+		scale_label	=> undef,
+		scale_label_fg	=> [0,0,0],
+		scale_label_font	=> 'Sans 8',
 
 		( $a ? %$a : () ),
 
 		plot		=> [],		# plots using this scale
-		bounds		=> undef,	# min,max from user/plots
-		size		=> undef,	# space needed for tics+labels
+		plot_size	=> undef,	# plot area size
+		context		=> undef,	# cairo context
+
+		# cached from parameter
 		label_fmt_sub	=> undef,	# function to format labels
-		label_size	=> undef,	# size of labels
+
+		# cached from plot data
+		bounds		=> undef,	# min,max from user/plots
+		label_dims	=> undef,	# size of labels
+		space		=> undef,	# space needed for tics+labels
+
+		# cached from device size + plot data
 		ticlist		=> undef,	# tics + prebuilt labels
 
 	}, ref $proto || $proto;
 }
 
-sub dimension {
-	$_[0]->{dimension};
-}
+# 0=horiz, 1=vertical
+sub orientation { croak "virtual method"; } # TODO: get rid of this
 
 sub position {
 	$_[0]->{position};
@@ -65,21 +73,29 @@ sub add_plot {
 	my $self = shift;
 	push @{$self->{plot}}, @_;
 
+	# clear caches
 	$self->{bounds} = undef;
-	$self->{size} = undef;
-	$self->{label_size} = undef;
+	$self->{label_dims} = undef;
+	$self->{space} = undef;
 	$self->{ticlist} = undef;
 }
 
-# TODO: clear caches
 sub set_bounds {
 	my( $self, $min, $max ) = @_;
 	$self->{min} = $min;
 	$self->{max} = $max;
 
+	# clear caches
 	$self->{bounds} = undef;
-	$self->{size} = undef;
-	$self->{label_size} = undef;
+	$self->{label_dims} = undef;
+	$self->{space} = undef;
+	$self->{ticlist} = undef;
+}
+
+sub flush_bounds {
+	my( $self ) = @_;
+
+	$self->{bounds} = undef;
 	$self->{ticlist} = undef;
 }
 
@@ -92,8 +108,11 @@ sub build_bounds {
 		my( $amin, $amax );
 
 		foreach my $plot (@{$self->{plot}}){
+			my $dim = $self->orientation;
+			$dim = $dim ? 0 : 1 if $plot->rotate;
+
 			my( $pmin, $pmax, $pdelta ) = 
-				$plot->get_source_bounds( $self->dimension );
+				$plot->get_source_bounds( $dim );
 
 			#print STDERR ref($self) 
 			#	."::build_bounds: plot $pmin, $pmax, $pdelta\n";
@@ -120,16 +139,20 @@ sub build_bounds {
 
 	#print STDERR ref($self) ."::build_bounds: $min, $max\n";
 	foreach my $plot (@{$self->{plot}}){
-		$plot->set_view_bounds( $self->dimension, $min, $max );
+		my $dim = $self->orientation;
+		$dim = $dim ? 0 : 1 if $plot->rotate;
+
+		$plot->set_view_bounds( $dim,
+			$min, $max, $self->{invert} );
 	}
 
-	[ $min, $max ];
+	( $min, $max );
 }
 
 sub get_bounds {
 	my( $self ) = @_;
 
-	$self->{bounds} ||= $self->build_bounds;
+	$self->{bounds} ||= [ $self->build_bounds ];
 	@{$self->{bounds}};
 }
 
@@ -137,8 +160,8 @@ sub build_fmt {
 	my( $self, $fmt ) = @_;
 
 	if( ! defined $fmt ){
-		# TODO quess fmt
-		return sub { sprintf( '%f', $_[0] ) };
+		# fall back to perls default stringification
+		return sub { $_[0] }; 
 
 	} elsif( ! ref $fmt ){
 		return sub { sprintf( $fmt, $_[0] ) };
@@ -154,6 +177,25 @@ sub build_fmt {
 	}
 }
 
+sub set_plot_size {
+	my( $self, $plot_size ) = @_;
+
+	$self->{plot_size} = [ @$plot_size ];
+
+	# clear caches
+	$self->{ticlist} = undef;
+}
+
+sub set_context {
+	my( $self, $context ) = @_;
+
+	$self->{context} = $context;
+
+	# clear caches
+	$self->{ticlist} = undef;
+}
+
+
 sub fmt_label {
 	my( $self, $val ) = @_;
 
@@ -161,60 +203,78 @@ sub fmt_label {
 	$fmt->( $val );
 }
 
-sub build_label {
-	my( $self, $cr, $val ) = @_;
+sub build_pango {
+	my( $self, $font, $val ) = @_;
 
-	# TODO: label_rotate
-	my $fd = Gtk2::Pango::FontDescription->from_string( $self->{label_font} );
-	my $l = Gtk2::Pango::Cairo::create_layout( $cr );
+	$self->{context}->save;
+	$self->{context}->rotate( 3.141 / 2 );
+
+	my $fd = Gtk2::Pango::FontDescription->from_string( $font );
+	my $l = Gtk2::Pango::Cairo::create_layout( $self->{context} );
 	$l->set_font_description( $fd );
-	$l->set_text( $self->fmt_label( $val ) );
+	$l->set_text( $val );
+
+	$self->{context}->restore;
 	$l;
 }
 
-sub build_label_size {
-	my( $self, $cr ) = @_;
+sub build_label {
+	my( $self, $val ) = @_;
 
-	my( $a, $b ) = ref $self->{label_fmt} eq 'ARRAY' 
-		? ($self->{label_fmt}[0], $self->{label_fmt}[-1] )
-		: $self->get_bounds;
-
-	my $la = $self->build_label( $cr, $a );
-	my $lb = $self->build_label( $cr, $b );
-
-	my @sa = $la->get_pixel_size;
-	my @sb = $lb->get_pixel_size;
-
-	[ ($sa[0] > $sb[0] ? $sa[0] : $sb[0]),
-		($sa[1] > $sb[1] ? $sa[1] : $sb[1]) ];
+	$self->build_pango( $self->{label_font}, $self->fmt_label( $val ) );
 }
 
-sub build_size {
-	my( $self, $cr ) = @_;
+sub build_label_dims {
+	my( $self ) = @_;
 
-	$self->{label_size} ||= $self->build_label_size( $cr );
-	my $dim = $self->{dimension} == 0 ? 1 : 0;
+	my @size = map {
+		[ $self->build_label( $_ )->get_pixel_size ];
+
+	} ref $self->{label_fmt} eq 'ARRAY' 
+		? @{$self->{label_fmt}}
+		: $self->get_bounds;
+
+	my @max;
+	foreach my $v ( @size ){
+		foreach my $d ( 0, 1 ){
+			if( ! defined($max[$d]) || $max[$d] < $v->[$d] ){
+				$max[$d] = $v->[$d] 
+			}
+		}
+	}
+
+	#print STDERR "MyChart::Scale::build_label_dims @max (no rotate)\n";
+
+	# ( along_axis, orthogonal_to_axis )
+	$self->{label_rotate}
+		? reverse @max 
+		: @max;
+}
+
+sub build_space {
+	my( $self ) = @_;
+
+	$self->{label_dims} ||= [ $self->build_label_dims ];
 
 	return $self->{tic_len} 
-		+ int( 1.05* $self->{label_size}[$dim]  )
+		+ int( 1.1* $self->{label_dims}[1] )
 		+ $self->{label_space};
 }
 
-sub get_size {
-	my( $self, $cr ) = @_;
+sub get_space {
+	my( $self ) = @_;
 
-	$self->{size} ||= $self->build_size( $cr );
+	$self->{space} ||= $self->build_space;
 }
 
-# TODO: calculate tics (amount, positions)
-# TODO: draw draw axis label, tics, tic labels, grid
+# TODO: deal with multiple scales on same side of axes. 
 
+# calculate tics (amount, positions)
 sub build_ticlist {
-	my( $self, $cr, $devmin, $devmax ) = @_;
+	my( $self, $devlen ) = @_;
 
-	my $devlen = $devmax - $devmin;
 	my( $min, $max ) = $self->get_bounds;
-	#print STDERR "ticlist: $devmin, $devmax, $devlen\n";
+	my $ulen = $max - $min;
 
 	my @tics; # = [ devdelta, label ],
 
@@ -232,76 +292,85 @@ sub build_ticlist {
 				: $val;
 			defined $lval or next;
 
-			my $dval = int($devlen * ($val - $min) / ($max - $min) );
+			my $dval = int($devlen * ($val - $min) / $ulen );
+			($dval *= -1) += $devlen if $self->{invert};
 
 			#print STDERR "tic_at $dval $val $lval\n";
 			unshift @tics, [
 				$dval,
-				$self->build_label( $cr, $lval ),
+				$lval,
+				$self->build_label( $lval ),
 			];
 		};
 
 	} elsif( $self->{tic_num} ){
-		my $ustep = ($max - $min) / $self->{tic_num};
+		my $ustep = $ulen / $self->{tic_num};
 		my $dstep = $devlen / $self->{tic_num};
 		#print STDERR "tic_num steps: $dstep $ustep\n";
 
 		foreach my $i ( 0 .. ($self->{tic_num}-1) ){
-			my $dval = int( $dstep * $i );
 			my $val = $min + $ustep * $i;
+			my $dval = int( $dstep * $i );
+			($dval *= -1) += $devlen if $self->{invert};
 
 			#print STDERR "tic_num $dval $val\n";
 			push @tics, [
 				$dval,
-				$self->build_label( $cr, $val ),
+				$val,
+				$self->build_label( $val ),
 			];
 		}
 
 	} elsif( $self->{tic_step} ){
-		my $num = int($max/$self->{tic_step}) -
-			int($min/$self->{tic_step} +0.5) -1;
-		my $uoffset = $min + ($min % $self->{tic_step});
+		my $uoffset = $min % $self->{tic_step};
 
-		my $dstep = $self->{tic_step} * $devlen / ($max - $min);
-		my $doffset = $dstep * ($self->{tic_step} - $min % $self->{tic_step})
-			/ $self->{tic_step};
+		my $first = int($min/$self->{tic_step});
+		$first++ if $uoffset;
+		my $num = int($max/$self->{tic_step}) - $first;
+
+		my $dstep = $self->{tic_step} * $devlen / $ulen;
+		my $doffset = $uoffset * $devlen / $ulen;
 		#print STDERR "tic_step num=$num offsets: $doffset $uoffset, dstep: $dstep\n";
 
 		foreach my $i ( 0 .. $num){
+			my $val = $min + $uoffset + $self->{tic_step} * $i;
 			my $dval = int( $doffset + $dstep * $i );
-			my $val = $uoffset + $self->{tic_step} * $i;
+			($dval *= -1) += $devlen if $self->{invert};
 
 			#print STDERR "tic_step $dval $val\n";
 			push @tics, [
 				$dval,
-				$self->build_label( $cr, $val ),
+				$val,
+				$self->build_label( $val ),
 			];
 		}
 
 	} else {
 		# print as many labels as possible
-		$self->{label_size} ||= $self->build_label_size( $cr );
+		$self->{label_dims} ||= [ $self->build_label_dims ];
 
 		# device coords
-		my $size = $self->{label_size}[ $self->{dimension} == 0 ?  0 : 1 ];
-		my $num = int( ($devlen - $self->{label_space} ) /
-			($size + 2*$self->{label_space} )
+		my $lsize = $self->{label_dims}[0];
+		my $num = int( $devlen  /
+			($lsize + $self->{label_space} )
 		);
 
 		# data coords
-		my $ustep = ($max - $min) / $num;
+		my $ustep = $ulen / $num;
 		my $dstep = $devlen / $num;
 
-		#print STDERR "tic_label_size $size, num=$num, steps: $dstep $ustep\n";
+		#print STDERR "tic_label_dims $lsize, num=$num, steps: $dstep $ustep\n";
 
 		foreach my $i ( 0 .. ($num ) ){
-			my $dval = int( $dstep * $i );
 			my $val = $min + $ustep * $i;
+			my $dval = int( $dstep * $i );
+			($dval *= -1) += $devlen if $self->{invert};
 
-			#print STDERR "tic_label_size $dval $val\n";
+			#print STDERR "tic_label_dims $dval $val\n";
 			push @tics, [
 				$dval,
-				$self->build_label( $cr, $val ),
+				$val,
+				$self->build_label( $val ),
 			];
 		}
 
@@ -310,121 +379,7 @@ sub build_ticlist {
 	return \@tics;
 }
 
-sub plot_vertical {
-	my( $self, $cr, $l, $t, $r, $b ) = @_;
-
-	my( $x1, $ltr );
-	if( $self->{position} == 3 ){
-		return; # invisible, do nothing
-
-	} elsif( $self->{position} == 2 ){
-		$x1 = $r;
-		$ltr = ! $self->{inside};
-
-	} elsif( $self->{position} == 1 ){
-		$x1 = $l;
-		$ltr = $self->{inside};
-	
-	} else { # position == 0
-		# TODO: zero axis scale
-
-	}
-
-	my( $x2, $x3 );
-	if( $ltr ){
-		$x2 = $x1 + $self->{tic_len};
-		$x3 = $x2 + $self->{tic_space};
-	} else {
-		$x2 = $x1 - $self->{tic_len};
-		$x3 = $x2 - $self->{tic_space};
-	}
-
-	my $tics = $self->{ticlist} ||= $self->build_ticlist( $cr, $t, $b );
-	foreach my $tic ( @$tics ){
-		$cr->move_to( $x1, $b - $tic->[0] +0.5 );
-		$cr->line_to( $x2, $b - $tic->[0] +0.5 );
-	}
-	$cr->set_source_rgb( @{$self->{tic_fg}} );
-	$cr->set_line_width( 1 );
-	$cr->stroke;
-
-	foreach my $tic ( @$tics ){
-		my $label = $tic->[1];
-		my( $w, $h ) = $label->get_pixel_size;
-
-		
-		my $x4 = $x3 + ( $ltr ? 0 : -$w );
-		$cr->move_to( $x4, $b - $tic->[0] - $h/2 );
-		$cr->set_source_rgb( @{$self->{label_fg}} );
-		Gtk2::Pango::Cairo::show_layout( $cr, $label );
-	}
-}
-
-sub plot_horizontal {
-	my( $self, $cr, $l, $t, $r, $b ) = @_;
-
-	my( $y1, $ttb );
-	if( $self->{position} == 3 ){
-		return; # invisible, do nothing
-
-	} elsif( $self->{position} == 2 ){
-		$y1 = $t;
-		$ttb = $self->{inside};
-
-	} elsif( $self->{position} == 1 ){
-		$y1 = $b;
-		$ttb = ! $self->{inside};
-	
-	} else { # position == 0
-		# TODO: zero axis scale
-
-	}
-
-	my( $y2, $y3 );
-	if( $ttb ){
-		$y2 = $y1 + $self->{tic_len};
-		$y3 = $y2 + $self->{tic_space};
-	} else {
-		$y2 = $y1 - $self->{tic_len};
-		$y3 = $y2 - $self->{tic_space};
-	}
-
-	my $tics = $self->{ticlist} ||= $self->build_ticlist( $cr, $l, $r );
-
-	foreach my $tic ( @$tics ){
-		$cr->move_to( $l + $tic->[0] +0.5, $y1 );
-		$cr->line_to( $l + $tic->[0] +0.5, $y2 );
-	}
-	$cr->set_source_rgb( @{$self->{tic_fg}} );
-	$cr->set_line_width( 1 );
-	$cr->stroke;
-
-	foreach my $tic ( @$tics ){
-		my $label = $tic->[1];
-		my( $w, $h ) = $label->get_pixel_size;
-
-		
-		my $y4 = $y3 + ( $ttb ? 0 : $h );
-		$cr->move_to( $l + $tic->[0] - $w/2, $y4 );
-		$cr->set_source_rgb( @{$self->{label_fg}} );
-		Gtk2::Pango::Cairo::show_layout( $cr, $label );
-	}
-
-}
-
-sub plot {
-	my( $self, $cr, $l, $t, $r, $b ) = @_;
-
-	$self->{size} = undef;
-	$self->{label_size} = undef;
-	$self->{ticlist} = undef;
-
-	if( $self->{dimension} == 0 ){
-		$self->plot_horizontal( $cr, $l, $t, $r, $b );
-	} else {
-		$self->plot_vertical( $cr, $l, $t, $r, $b );
-	}
-}
+sub draw { croak "virtual method"; };
 
 
 1;

@@ -18,15 +18,17 @@ sub new {
 
 	# config
 	$self->{line_width}	||= 1;
-	#$self->{line_style}	||= 0; # TODO
+	$self->{line_style}	||= 0;	# 0=solid, 1=dashed, 2=dotted, 3=dot-dash
+	$self->{line_style}	%= 4; 
 	#$self->{skip_undef}	||= 0; # TODO
 
 	$self;
 }
 
-sub build_path {
-	my( $self, $cr ) = @_;
+sub build_path_loh {
+	my( $self ) = @_;
 
+	my $cr = $self->{context};
 	my @col = ( $self->{xcol}, $self->{ycol} );
 	my $dat = $self->{source}->list;
 
@@ -48,10 +50,25 @@ sub build_path {
 }
 
 sub do_plot {
-	my( $self, $cr ) = @_;
+	my( $self ) = @_;
+
+	my $cr = $self->{context};
+
+	if( $self->{line_style} == 3 ){
+		$cr->set_dash( 0, 4, 2, 2, 2 );
+
+	} elsif( $self->{line_style} == 2 ){
+		$cr->set_dash( 0, 6, 3 );
+
+	} elsif( $self->{line_style} == 1 ){
+		$cr->set_dash( 0, 0, 3 );
+
+	}
+	
 	$cr->set_line_width( $self->{line_width} );
-	# $cr->set_dash( $foo ) if $self->{line_style}; # TODO
 	$cr->set_line_join( 'round' );
+	$cr->set_line_cap( 'round' );
+	$cr->set_source_rgb( @{$self->{color}} );
 	$cr->stroke;
 }
 

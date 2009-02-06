@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use base 'MyChart::Source';
 
+# TODO: move to workout package
 
 # setup data source
 sub new {

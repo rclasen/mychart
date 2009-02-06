@@ -15,6 +15,11 @@ package MyChart;
 use strict;
 use warnings;
 use Carp;
+use MyChart::Source;
+use MyChart::Scale::Horizontal;
+use MyChart::Scale::Vertical;
+use MyChart::Plot::Line;
+use MyChart::Plot::Area;
 
 # TODO: bargraphs
 # TODO: stacked lines + areas
@@ -23,6 +28,7 @@ use Carp;
 # TODO: provide "device_to_user" mapping function
 # TODO: provide function to check if device_coord is part of graph
 
+# default colors to use for plots:
 our @colors = (
 	[1,0,0],	# red
 	[0,1,0],	# green
@@ -30,7 +36,7 @@ our @colors = (
 	[1,1,0],	# yellow
 	[1,0,1],	# magenta
 	[0,1,1],	# cyan
-	#[0,0,0],	# black
+	[0,0,0],	# black
 );
 
 
@@ -47,9 +53,11 @@ sub new {
 		margin_t	=> 0,
 		margin_b	=> 0,
 
-		# TODO: translucent
+		# translucent
 		bg		=> [0.9, 0.9, 0.9],
+		bg_alpha	=> 1,
 		chart_bg	=> [1,1,1],	
+		chart_bg_alpha	=> 1,
 		axis_fg		=> [0,0,0],
 		border_fg	=> [0,0,0],
 		plot_box	=> 1,
@@ -64,34 +72,37 @@ sub new {
 
 		# defaults for plots:
 		colors		=> [ @colors ],
-		line_style	=> 1,
+		line_style	=> 0,
 		line_width	=> 1,
 
+		# TODO: (more) defaults for scales:
+		label_font      => 'Sans 8',
+		scale_label_font   => 'Sans 8',
 
 		$a ? %$a : (),
 
 		plot	=> [],		# list of MyChart::Plot objects
 
 		defscale => [
-			undef,	# default horizontal scale name
-			undef,	# default vertical scale name
+			undef,		# default horizontal scale name
+			undef,		# default vertical scale name
 		],
 
 		scale	=> {		# scale name => { MyChart::Scale + axis }
 		},
 
 		axis	=> [		# "undef" becomes list of scales on axis
-			[ # dimension=0 / horizontal
-				undef, # position=0 / zero
-				undef, # position=1 / bottom
-				undef, # position=2 / top
-				undef, # position=3 / hidden
+			[		# orientation=0 / horizontal
+				undef,	# position=0 / zero
+				undef,	# position=1 / bottom
+				undef,	# position=2 / top
+				undef,	# position=3 / hidden
 			],
-			[ # dimension=1 / vertical
-				undef, # position=0 / zero
-				undef, # position=1 / left
-				undef, # position=2 / right
-				undef, # position=3 / hidden
+			[		# orientation=1 / vertical
+				undef,	# position=0 / zero
+				undef,	# position=1 / left
+				undef,	# position=2 / right
+				undef,	# position=3 / hidden
 			],
 		],
 
@@ -102,20 +113,36 @@ sub new {
 
 sub set_context {
 	my( $self, $context, $w, $h ) = @_;
-	# TODO: flush caches?
+
 	@{$self}{qw/ context width height /} = ( $context, $w, $h );
+
+	#print STDERR "MyChart::set_context size: $w, $h\n";
+	foreach my $child ( values %{$self->{scale}}, @{$self->{plot}} ){
+		$child->set_context( $context );
+	}
+
+	# clear caches
 	$self->{layout} = undef;
 }
 
 sub add_scale {
 	my $self = shift;
 
-	while( my( $n, $d ) = splice( @_, 0, 2 ) ){
-		if( exists $self->{scale}{$n} ){
-			croak "scale $n already defined";
+	while( my( $sname, $d ) = splice( @_, 0, 2 ) ){
+		if( exists $self->{scale}{$sname} ){
+			croak "scale $sname already defined";
 		}
 
-		my $dim = exists $d->{horizontal} && $d->{horizontal} ? 0 : 1;
+		my $orient;
+		if( ! exists $d->{orientation} || ! defined $d->{orientation} ){
+			$orient = 1;
+			
+		} elsif( $d->{orientation} < 0 || $d->{orientation} > 1 ){
+			croak "invalid orientation $d->{orientation}";
+
+		} else {
+			$orient = $d->{orientation};
+		}
 
 		my $pos;
 		if( ! exists $d->{position} ){
@@ -125,26 +152,37 @@ sub add_scale {
 			$pos = 3;
 		
 		} elsif( $d->{position} > 3 || $d->{position} < 0 ){
-			croak "invalid axis position $pos";
+			croak "invalid axis position $d->{position}";
 
 		} else {
 			$pos = $d->{position};
 
 		}
 
-		$self->{axis}[$dim][$pos] ||= [];
+		$self->{axis}[$orient][$pos] ||= [];
 
-		my $scale = $self->{scale}{$n} = MyChart::Scale->new({
-			inside		=> @{$self->{axis}[$dim][$pos]} % 2,
+		my %a = (
+			inside		=> @{$self->{axis}[$orient][$pos]} % 2,
+			label_font      => $self->{label_font},
+			scale_label_font   => $self->{scale_label_font},
+
 			%$d,
-			dimension	=> $dim,
+
 			position	=> $pos,
-		});
+			context		=> $self->{context},
+		);
+		my $scale = $self->{scale}{$sname} = $orient == 0 
+			? MyChart::Scale::Horizontal->new( \%a )
+			: MyChart::Scale::Vertical->new( \%a );
 
-		$self->{defscale}[$dim] ||= $n;
+		$self->{defscale}[$orient] ||= $sname;
 
-		push @{$self->{axis}[$dim][$pos]}, $scale;
+		push @{$self->{axis}[$orient][$pos]}, $scale;
 	}
+
+	# clear caches
+	#$self->{bounds} = undef;
+	$self->{layout} = undef;
 }
 
 sub get_scale {
@@ -160,37 +198,58 @@ sub set_bounds {
 	my $scale = $self->get_scale($name)
 		or croak "no such scale: $name";
 	$scale->set_bounds( $min, $max );
+
+	# clear caches
+	#$self->{bounds} = undef;
+}
+
+sub flush_bounds {
+	my( $self, $name ) = @_;
+
+	my $scale = $self->get_scale($name)
+		or croak "no such scale: $name";
+	$scale->flush_bounds;
+}
+
+sub flush_bounds_all {
+	my( $self ) = @_;
+
+	foreach my $scale ( values %{ $self->{scale} } ){
+		$scale->flush_bounds;
+	}
 }
 
 sub add_plot {
 	my $self = shift;
 
-	while( my( $n, $d ) = splice( @_, 0, 2 ) ){
+	foreach my $d ( @_ ){
 
 		# find scales for plot:
-		my $xsname = $d->{xscale} || $self->{defscale}[0];
+		my $xsname = $d->{xscale} || $d->{xcol} || $self->{defscale}[0];
 		exists $self->{scale}{$xsname}
-			or croak "addplot $n: no such scale: $xsname";
+			or croak "addplot: no such scale: $xsname";
 
-		my $ysname = $d->{yscale} || ( 
-			exists $self->{scale}{$n} ? $n : $self->{defscale}[1] );
+		my $ysname = $d->{yscale} || $d->{ycol} || $self->{defscale}[1];
 		exists $self->{scale}{$ysname}
-			or croak "addplot $n: no such scale: $ysname";
+			or croak "addplot: no such scale: $ysname";
 
+		#print STDERR "add_plot scales: $xsname, $ysname\n";
 		my $xscale = $self->{scale}{$xsname};
 		my $yscale = $self->{scale}{$ysname};
-		$xscale->dimension != $yscale->dimension
-			or croak "scales $xsname and $ysname use same dimension";
+		$xscale->orientation != $yscale->orientation
+			or croak "scales $xsname and $ysname use same orientation";
 
-		# TODO: rotate plot
+		my $rotate = $xscale->orientation != 0;
 
 		my $color = $d->{color} || shift @{$self->{colors}};
 
 		# setup plot
 		my $type = $d->{type} || 'Line';
+
+		# TODO: auto-load plot module
 		my $plot = "MyChart::Plot::$type"->new({
 			# chart defaults:
-			line_type	=> $self->{line_type},
+			line_style	=> $self->{line_style},
 			line_width	=> $self->{line_width},
 
 			# defaults based on user input:
@@ -200,63 +259,89 @@ sub add_plot {
 			# user parameters
 			%$d,
 
-			color	=> $color,
+			context		=> $self->{context},
+			rotate		=> $rotate,
+			color		=> $color,
 		});
 		$xscale->add_plot( $plot );
 		$yscale->add_plot( $plot );
 
 		push @{$self->{plot}}, $plot;
 	}
+
+	# clear caches
+	$self->{layout} = undef;
+	#$self->{bounds} = undef;
 }
+
+sub get_plot {
+	my( $self, $id ) = @_;
+
+	return if $id > $#{$self->{plot}};
+	$self->{plot}[$id];
+}
+
+sub flush_plot_all {
+	my( $self, $name ) = @_;
+
+	foreach my $plot ( @{ $self->{plot} } ){
+		$plot->flush;
+	}
+}
+
 
 =pod
 
-+----------------------------------------------------------+
-|\  margin t                                              /|
-| +------------------------------------------------------+ |
-| | title                                                | |
-| +------------------------------------------------------+ |
-|m|\  legend t                                          /|m|
-|a| +--------------------------------------------------+ |a|
-|r|l|         # value                  scale           |l|r|
-|g|e|          t  |                                    |e|g|
-|i|g| ######      |                             ###### |g|i|
-|n|e| scale  t +--+-------------------------+ t scale  |e|n|
-| |n| value  --+                            |          |n| |
-|l|d|          |                            +-- value  |d|r|
-| | |          |                            |          | | |
-| |l|          +----+-----------------------+          |r| |
-| | |               |                                  | | |
-| | |          t    |                                  | | |
-| | |         #  value                 scale           | | |
-| | +--------------------------------------------------+ | |
-| |/  legend b                                          \| |
-| +------------------------------------------------------+ |
-|/  margin b                                              \|
-+----------------------------------------------------------+
++----------------------------------------------------------------------+
+|\  margin t                                                          /|
+| +------------------------------------------------------------------+ |
+| | title                                                            | |
+| +------------------------------------------------------------------+ |
+| |\  legend t                                                      /| |
+|m| +--------------------------------------------------------------+ |m|
+|a| |    scale2      +         value              -                | |a|
+|r|l|                -value                       +       scale1   |l|r|
+|g|e|      .      .     |t       |t                  .      .      |e|g|
+|i|g|scale2|scale1|     |        |                   |scale1|      |g|i|
+|n|e|  +   |  +   |  +--+--------+----------------+  |  +   |  -   |e|n|
+| |n|      |value |--+                            |  |      |      |n| |
+|l|d|      |      |t |                            +--|value |      |d|r|
+| | |      |      |  |                            | t|      |      | | |
+| |l|value |      |--+                            +--|      |value |r| |
+| | |      |      |t |                            | t|      |      | | |
+| | |  -   |  -   |  +----+---------+-------------+  |  -   |  +   | | |
+| | |      |      |       |         |                |      |scale2| | |
+| | |      .      .       |t        |t               .      .      | | |
+| | |    scale1         value                                      | | |
+| | |    scale2                   value                            | | |
+| | +--------------------------------------------------------------+ | |
+| |/  legend b                                                      \| |
+| +------------------------------------------------------------------+ |
+|/  margin b                                                          \|
++----------------------------------------------------------------------+
 
 =cut
 
 sub get_scale_size {
-	my( $self, $dim, $pos ) = @_;
+	my( $self, $orient, $pos ) = @_;
 
 	my $s = 0;
-	foreach my $scale ( @{$self->{axis}[$dim][$pos]} ){
+	foreach my $scale ( @{$self->{axis}[$orient][$pos]} ){
 		next if $scale->inside;
-		my $ss = $scale->get_size( $self->{context} );
-		#print STDERR ref($self), "::get_scale_size $dim $pos : $ss\n";
+		my $ss = $scale->get_space;
+		#print STDERR ref($self), "::get_scale_size $orient $pos : $ss\n";
 		$s = $ss if $ss > $s;
 	}
 	return $s;
 }
 
-sub build_title {
-	my( $self ) = @_;
+sub build_pango {
+	my( $self, $font, $text ) = @_;
 
-	my $fd = Gtk2::Pango::FontDescription->from_string( $self->{title_font} );
+	my $fd = Gtk2::Pango::FontDescription->from_string( $font );
 	my $l = Gtk2::Pango::Cairo::create_layout( $self->{context} );
 	$l->set_font_description( $fd );
-	$l->set_text( $self->{title} );
+	$l->set_text( $text );
 	$l;
 }
 
@@ -281,7 +366,8 @@ sub build_layout {
 
 	# title
 	if( $self->{title} ){
-		$self->{title_layout} ||= $self->build_title;
+		$self->{title_layout} ||= $self->build_pango(
+			$self->{title_font}, $self->{title} );
 		my $height = ($self->{title_layout}->get_pixel_size)[1];
 
 		$layout->{title} = [
@@ -352,8 +438,12 @@ sub build_layout {
 		}
 	}
 
+	# TODO: allocate axis label space
+	# TODO: multiple scales, setup area for each, get max tic space
+	# TODO: take "protuding" labels into account (i.e. left of plot  box on a horizontal axis)
+
 	# scales' size + box line_width + axis line_width
-	$layout->{plot} = [
+	$lplot = $layout->{plot} = [
 		$lplot->[0] + $self->get_scale_size( 1, 1 ) +2,
 		$lplot->[1] + $self->get_scale_size( 0, 2 ) +2,
 		$lplot->[2] - $self->get_scale_size( 1, 2 ) -2,
@@ -361,18 +451,49 @@ sub build_layout {
 	];
 
 
+	foreach my $child ( values %{$self->{scale}}, @{$self->{plot}} ){
+		$child->set_plot_size( $lplot );
+	}
+	
 	$layout;
 }
 
+sub draw_bg {
+	my( $self ) = @_;
 
-sub plot {
+	my $cr = $self->{context};
+
+	$cr->save;
+	$cr->set_operator( 'source' );
+	$cr->set_source_rgba( @{$self->{bg}}, $self->{bg_alpha} );
+	$cr->paint;
+	$cr->restore;
+
+}
+
+sub draw_chart_bg {
+	my( $self ) = @_;
+
+	my $cr = $self->{context};
+	my $layout = $self->{layout};
+
+	$cr->rectangle( 
+		$layout->{plot}[0],
+		$layout->{plot}[1],
+		$layout->{plot}[2] - $layout->{plot}[0],
+		$layout->{plot}[3] - $layout->{plot}[1] );
+
+	$cr->set_source_rgba( 
+		@{$self->{chart_bg}}, $self->{chart_bg_alpha} );
+	$cr->fill;
+}
+
+sub draw {
 	my( $self ) = @_;
 
 
-	# TODO: cache bounds
-
-
 	# get data bounds
+	# no caching, needs to be rebuilt on $source or $scale->bounds update
 	foreach my $scale ( values %{$self->{scale}} ){
 		$scale->get_bounds;
 	}
@@ -385,15 +506,17 @@ sub plot {
 
 	# background
 	$cr->rectangle( 0, 0, $w, $h);
-	$cr->clip_preserve;
-	$cr->set_source_rgb( @{$self->{bg}} );
-	$cr->fill;
+	$cr->clip;
+
+	$self->draw_bg;
+
 
 	# border
 	$cr->rectangle( 0.5, 0.5, $w-1, $h-1);
 	$cr->set_line_width( 1 );
 	$cr->set_source_rgb( @{$self->{border_fg}} );
 	$cr->stroke;
+
 
 	# title
 	if( $self->{title} ){
@@ -407,18 +530,12 @@ sub plot {
 		Gtk2::Pango::Cairo::show_layout( $cr, $self->{title_layout} );
 	}
 
-	# TODO: setup axises + scales according
-	# TODO: draw legend
-
 	# plot / chart area:  backround
-	$cr->rectangle( 
-		$layout->{plot}[0],
-		$layout->{plot}[1],
-		$layout->{plot}[2] - $layout->{plot}[0],
-		$layout->{plot}[3] - $layout->{plot}[1] );
-	$cr->set_source_rgb( @{$self->{chart_bg}} );
-	$cr->fill;
+	$self->draw_chart_bg;
 
+
+
+	# draw axises
 	$cr->set_line_width( 1 );
 	$cr->set_source_rgb( @{$self->{axis_fg}} );
 	if( $self->{plot_box} ){
@@ -465,29 +582,25 @@ sub plot {
 	# clip to plot region (when zooming / scale bounds < source bounds)
 	# and draw plots
 	$cr->save;
-	$cr->rectangle( 
-		$layout->{plot}[0],
-		$layout->{plot}[1],
-		$layout->{plot}[2] - $layout->{plot}[0],
-		$layout->{plot}[3] - $layout->{plot}[1] );
-	$cr->clip;
+#	$cr->rectangle( 
+#		$layout->{plot}[0],
+#		$layout->{plot}[1],
+#		$layout->{plot}[2] - $layout->{plot}[0],
+#		$layout->{plot}[3] - $layout->{plot}[1] );
+#	$cr->clip;
 
 	foreach my $plot ( @{$self->{plot}} ){
-		$plot->set_size( 
-			$layout->{plot}[0],
-			$layout->{plot}[1],
-			$layout->{plot}[2] - $layout->{plot}[0],
-			$layout->{plot}[3] - $layout->{plot}[1] );
-		$plot->plot( $cr );
+		$plot->draw( $cr );
 	}
 	$cr->restore;
 
 
 	# draw scales (tics + tic labels + axis labels)
 	foreach my $scale ( values %{$self->{scale}} ){
-		$scale->plot( $cr, @{$layout->{plot}} );
+		$scale->draw;
 	}
 
+	# TODO: draw legend
 
 }
 

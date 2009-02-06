@@ -58,7 +58,7 @@
 
 
 cache graphs:
-- draw each graph to it's own surface
+- draw each graph to it's own surface / cache cairo path
   - get data-sources' min/max
   - prepare line type parameters (color, solid/dashed/..., brush)
   - for each data set:

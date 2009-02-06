@@ -26,11 +26,13 @@ sub new {
 
 sub set_data {
 	my( $self, $list, $min, $max, $delta ) = @_;
+	#TODO: sort data?
 	#TODO: automagically determin min+max
 	$self->{list} = $list;
 	$self->{min} = $min;
 	$self->{max} = $max;
 	$self->{delta} = $delta || {};
+	#TODO: emit signal to flush Scale::bounds and Plot::path
 }
 
 sub min {
@@ -54,7 +56,7 @@ sub set_delta {
 	my( $self, $col, $delta ) = @_;
 	$self->{delta}{$col} = $delta;
 
-	#TODO: emit signal?
+	#TODO: emit signal to flush Scale::bounds
 }
 
 sub bounds {

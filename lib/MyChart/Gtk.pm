@@ -6,12 +6,11 @@ use Glib qw/ TRUE FALSE /;
 use Gtk2;
 use MyChart;
 
-# TODO: send "clicked" event per plot
-# TODO: default to use GTK fonts + colors
+# TODO: send "clicked" event per Plot
 # TODO: tooltips with user coordinates when hovering over plots
 # TODO: range selection (horiz + vertical)
 # TODO: zoom to selection
-# TODO: show/hide plot
+# TODO: show/hide individual plots
 
 use Glib::Object::Subclass
 	'Gtk2::DrawingArea',
@@ -29,6 +28,20 @@ use constant MIN_GRAPH_HEIGHT	=> 150;
 
 sub INIT_INSTANCE {
 	my $self = shift;
+
+	$self->{chart} = undef;
+	$self->{chart_class} = 'MyChart';
+
+	# TODO: gtk colors from 'gtk-color-hash'
+	my $set = $self->get_settings;
+	my $font = $set->get( 'gtk-font-name' );
+	$self->{chart_defaults} = {
+		title_font	=> $font,
+		legend_font	=> $font,
+		# default scale fonts:
+		label_font	=> $font,
+		scale_label_font	=> $font,
+	};
 
 	$self->{pixmap} = undef;
 	$self->{need_draw} = 1;
@@ -94,14 +107,15 @@ sub queue_redraw {
 
 sub chart_init {
 	my $self = shift;
-	MyChart->new;
+
+	"$self->{chart_class}"->new( $self->{chart_defaults} );
 }
 
 sub chart_draw {
 	my( $self ) = @_;
 
 	return unless $self->{pixmap};
-	$self->chart->plot;
+	$self->chart->draw;
 	$self->{need_draw} = 0;
 }
 
