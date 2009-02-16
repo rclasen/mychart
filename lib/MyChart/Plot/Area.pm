@@ -40,6 +40,8 @@ sub build_path_loh {
 	foreach( @$dat ){
 		my( $x, $y ) = @{$_}{@col};
 		if( defined $y ){
+			$y = $ymin if $y < $ymin;
+
 			if( ! defined $ly ){
 				$cr->line_to( $x, $ymin );
 				#print join( ' ', $x, $ymin ),"\n";
@@ -94,7 +96,6 @@ sub do_plot {
 		);
 
 		my $pat = Cairo::LinearGradient->create( @coord );
-		print STDERR "gradient @coord\n";
 		$pat->add_color_stop_rgba( 0, @{$self->{color}}, $self->{color_alpha} );
 		$pat->add_color_stop_rgba( 1, @{$self->{color}}, $self->{color_alpha2} );
 		$cr->set_source( $pat );
