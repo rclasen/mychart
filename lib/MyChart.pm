@@ -28,6 +28,9 @@ use MyChart::Plot::Area;
 # TODO: provide "device_to_user" mapping function
 # TODO: provide function to check if device_coord is part of graph
 
+# TODO: provide GtkScrollable Interface. Draw "full" scale + plot to
+# backing store and copy only viewport area to Widget.
+
 # default colors to use for plots:
 our @colors = (
 	[1,0,0],	# red
@@ -222,7 +225,9 @@ sub flush_bounds_all {
 sub add_plot {
 	my $self = shift;
 
+
 	foreach my $d ( @_ ){
+		#print STDERR "add_plot $d->{ycol} $d->{legend}\n";
 
 		# find scales for plot:
 		my $xsname = $d->{xscale} || $d->{xcol} || $self->{defscale}[0];
@@ -582,12 +587,12 @@ sub draw {
 	# clip to plot region (when zooming / scale bounds < source bounds)
 	# and draw plots
 	$cr->save;
-#	$cr->rectangle( 
-#		$layout->{plot}[0],
-#		$layout->{plot}[1],
-#		$layout->{plot}[2] - $layout->{plot}[0],
-#		$layout->{plot}[3] - $layout->{plot}[1] );
-#	$cr->clip;
+	$cr->rectangle( 
+		$layout->{plot}[0],
+		$layout->{plot}[1],
+		$layout->{plot}[2] - $layout->{plot}[0],
+		$layout->{plot}[3] - $layout->{plot}[1] );
+	$cr->clip;
 
 	foreach my $plot ( @{$self->{plot}} ){
 		$plot->draw( $cr );

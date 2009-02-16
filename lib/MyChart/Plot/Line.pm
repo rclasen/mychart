@@ -54,6 +54,7 @@ sub do_plot {
 
 	my $cr = $self->{context};
 
+	# TODO: take line_width into account for pattern
 	if( $self->{line_style} == 3 ){
 		$cr->set_dash( 0, 4, 2, 2, 2 );
 
