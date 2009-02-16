@@ -41,7 +41,7 @@ sub new {
 		# plot parameter
 		plot_size	=> undef,
 
-		# source parameter
+		# view parameter
 		bounds	=> [{			# xaxis
 			min	=> undef,
 			max	=> undef,
@@ -138,6 +138,9 @@ sub build_matrix {
 
 	# data coords:
 	my @u = map { { %$_ }; } @{$self->{bounds}};
+	foreach( 0 .. 1 ){
+		$u[$_]{delta} = ($self->get_source_bounds($_))[2];
+	};
 
 	# invert device axis coords
 	foreach( 0 .. 1 ){
@@ -155,13 +158,14 @@ sub build_matrix {
 
 	# invert/scale user scale;
 	my @scale = (
-		($r[0][1]-$r[0][0]) / ($u[0]{max} - $u[0]{min}),
-		($r[1][1]-$r[1][0]) / ($u[1]{max} - $u[1]{min}),
+		($r[0][1]-$r[0][0]) / ( ($u[0]{max} - $u[0]{min})||1 ),
+		($r[1][1]-$r[1][0]) / ( ($u[1]{max} - $u[1]{min})||1 ),
 	);
 	$cr->scale( @scale );
 
 	# data offset:
-	$cr->translate( -$u[0]{min}, -$u[1]{min} );
+	$cr->translate( -$u[0]{min} + $u[0]{delta}, 
+		-$u[1]{min} + $u[1]{delta} );
 
 	my $matrix = $cr->get_matrix;
 	$cr->restore;
@@ -174,26 +178,7 @@ sub translate {
 
 	$self->{matrix} = $self->build_matrix;
 	$self->{context}->transform( $self->{matrix} );
-	$self->dump_coord if $self->{ycol} eq 'hr';
 }
-
-sub dump_coord {
-	my( $self ) = @_;
-
-	my $cr = $self->{context};
-	my( $xmin, $xmax ) = $self->get_source_bounds(0);
-	my( $ymin, $ymax ) = $self->get_source_bounds(1);
-
-	print STDERR ref($self),"::coords: ", join(" ", map { int( ($_||0) +0.5) } (
-		$xmin||0, $ymin||0,
-		$xmax||0, $ymax||0,
-	) ), "\n";
-	print STDERR ref($self),"::coords: ", join(" ", map { int( ($_||0) +0.5) } (
-		$cr->user_to_device( $xmin||0, $ymin||0 ),
-		$cr->user_to_device( $xmax||0, $ymax||0 ) 
-	) ), "\n";
-}
-
 
 
 # TODO: alternate build_path methods for sources other than arrays of hashes
