@@ -135,14 +135,20 @@ sub add_scale {
 sub get_scale {
 	my $self = shift;
 
-	$self->chart->add_scale( @_ );
+	$self->chart->get_scale( @_ );
 }
 
 sub add_plot {
 	my $self = shift;
 
-	$self->chart->add_scale( @_ );
+	$self->chart->add_plot( @_ );
 	$self->queue_redraw;
+}
+
+sub get_plot {
+	my $self = shift;
+
+	$self->chart->get_plot( @_ );
 }
 
 sub set_bounds {
