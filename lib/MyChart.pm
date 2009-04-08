@@ -327,17 +327,45 @@ sub flush_plot_all {
 
 =cut
 
+sub max {
+	my $m = shift;
+	foreach( @_ ){
+		if( ! defined($m) || (defined($_) && $_ > $m) ){
+			$m = $_;
+		}
+	}
+	$m;
+}
+
 sub get_scale_size {
 	my( $self, $orient, $pos ) = @_;
 
-	my $s = 0;
+	my @s = (0, 0, 0); # "width", "before", "after"
 	foreach my $scale ( @{$self->{axis}[$orient][$pos]} ){
 		next if $scale->inside;
-		my $ss = $scale->get_space;
+		my @ss = $scale->get_space;
 		#print STDERR ref($self), "::get_scale_size $orient $pos : $ss\n";
-		$s = $ss if $ss > $s;
+		for my $i (0 .. 2){
+			$s[$i] = &max( $ss[$i], $s[$i] );
+		}
 	}
-	return $s;
+	return @s;
+}
+
+sub get_scales_size {
+	my( $self ) = @_;
+
+	my @l = $self->get_scale_size( 1, 1 );
+	my @t = $self->get_scale_size( 0, 2 );
+	my @r = $self->get_scale_size( 1, 2 );
+	my @b = $self->get_scale_size( 0, 1 );
+
+	return (
+		&max( $l[0], $t[1], $b[1] ),
+		&max( $t[0], $l[1], $r[1] ),
+		&max( $r[0], $t[2], $b[2] ),
+		&max( $b[0], $t[2], $b[2] ),
+	);
 }
 
 sub build_pango {
@@ -445,14 +473,15 @@ sub build_layout {
 
 	# TODO: allocate axis label space
 	# TODO: multiple scales, setup area for each, get max tic space
-	# TODO: take "protuding" labels into account (i.e. left of plot  box on a horizontal axis)
 
 	# scales' size + box line_width + axis line_width
+	my $sborder = 2;
+	my @ss = $self->get_scales_size;
 	$lplot = $layout->{plot} = [
-		$lplot->[0] + $self->get_scale_size( 1, 1 ) +2,
-		$lplot->[1] + $self->get_scale_size( 0, 2 ) +2,
-		$lplot->[2] - $self->get_scale_size( 1, 2 ) -2,
-		$lplot->[3] - $self->get_scale_size( 0, 1 ) -2,
+		$lplot->[0] + $ss[0] + $sborder,
+		$lplot->[1] + $ss[1] + $sborder,
+		$lplot->[2] - $ss[2] - $sborder,
+		$lplot->[3] - $ss[3] - $sborder,
 	];
 
 

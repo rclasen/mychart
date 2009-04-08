@@ -256,15 +256,19 @@ sub build_space {
 
 	$self->{label_dims} ||= [ $self->build_label_dims ];
 
-	return $self->{tic_len} 
+	return [ $self->{tic_len} 
 		+ int( 1.1* $self->{label_dims}[1] )
-		+ $self->{label_space};
+		+ $self->{label_space},
+		int( 1.1* $self->{label_dims}[0] / 2 ),
+		int( 1.1* $self->{label_dims}[0] / 2 ),
+		];
 }
 
 sub get_space {
 	my( $self ) = @_;
 
 	$self->{space} ||= $self->build_space;
+	@{$self->{space}};
 }
 
 # TODO: deal with multiple scales on same side of axes. 
