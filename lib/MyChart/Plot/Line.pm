@@ -20,7 +20,7 @@ sub new {
 	$self->{line_width}	||= 1;
 	$self->{line_style}	||= 0;	# 0=solid, 1=dashed, 2=dotted, 3=dot-dash
 	$self->{line_style}	%= 4; 
-	#$self->{skip_undef}	||= 0; # TODO
+	$self->{skip_undef}	||= 0;
 
 	$self;
 }
@@ -36,11 +36,17 @@ sub build_path_loh {
 
 	foreach( @$dat ){
 		my @val = @{$_}{@col};
-		next unless defined $val[0] and defined $val[1];
+		next unless defined $val[0];
 
-		if( ! $init ){
+
+		if( ! defined $val[1] ){
+			next if $self->{skip_undef};
+			$init = 0;
+
+		} elsif( ! $init ){
 			$cr->move_to( @val );
 			++$init;
+
 		} else {
 			$cr->line_to( @val );
 		}
