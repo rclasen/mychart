@@ -73,7 +73,7 @@ sub set_source {
 
 	#print STDERR ref($self) ."::set_source\n";
 	$self->{source} = $source;
-	$self->set_view_bounds;
+	$self->set_view_bounds; # TODO: parameter
 	@{$self->{column}} = ( $xcol, $ycol );
 
 	$self->{matrix} = undef;

@@ -27,6 +27,7 @@ use MyChart::Plot::Area;
 
 # TODO: provide "device_to_user" mapping function
 # TODO: provide function to check if device_coord is part of graph
+# TODO: selections: none, single cursor, range
 
 # TODO: provide GtkScrollable Interface. Draw "full" scale + plot to
 # backing store and copy only viewport area to Widget.

@@ -30,39 +30,28 @@ sub build_path_loh {
 	my $dat = $self->{source}->list;
 
 	my( $xmin, $xmax ) = $self->get_source_bounds(0);
-	my( $ymin, $ymax ) = $self->get_view_bounds(1); 
-	# TODO: don't use view limits. They end up in the cached path and
-	# result in broken plots when the view limits are changed.
 
-	$cr->move_to( $xmin, $ymin );
-	#print join( ' ', $xmin, $ymin ),"\n";
+	$cr->move_to( $xmin, 0 );
 	my( $lx, $ly );
 	foreach( @$dat ){
 		my( $x, $y ) = @{$_}{@col};
 		if( defined $y ){
-			$y = $ymin if $y < $ymin;
-
 			if( ! defined $ly ){
-				$cr->line_to( $x, $ymin );
-				#print join( ' ', $x, $ymin ),"\n";
+				$cr->line_to( $x, 0 );
 			}
 			$cr->line_to( $x, $y );
-			#print join( ' ', $x, $y ),"\n";
 
 		} else {
 			if( defined $ly ){
-				$cr->line_to( $lx, $ymin );
-				#print join( ' ', $lx, $ymin ),"\n";
+				$cr->line_to( $lx, 0 );
 			}
 		};
 		( $lx, $ly ) = ( $x, $y );
 	}
-	if( defined $ly && $ly > $ymin ){
-		$cr->line_to( $xmax, $ymin );
-		#print join( ' ', $xmax, $ymin ),"\n";
+	if( defined $ly && $ly ){
+		$cr->line_to( $xmax, 0 );
 	}
 	$cr->close_path;
-	#print "area path close\n";
 
 	$cr->copy_path;
 }
