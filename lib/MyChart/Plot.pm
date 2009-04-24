@@ -12,7 +12,6 @@ package MyChart::Plot;
 use strict;
 use warnings;
 use Carp;
-use Data::Dumper;
 use Math::Trig qw/ pi /;
 
 sub new {

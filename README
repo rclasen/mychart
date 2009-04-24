@@ -20,10 +20,12 @@ DEPENDENCIES
 This module requires these other modules and libraries:
 
     Cairo - as perl module
+    Pango - as perl module
 
 To use the provied MyChart::Gtk widget, you also need
 
     Gtk2 - as perl module
+    Glib - as perl module
 
 COPYRIGHT AND LICENCE
 

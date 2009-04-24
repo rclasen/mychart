@@ -4,9 +4,12 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME              => 'MyChart',
-    VERSION      => '0.01',
+    VERSION      => '0.02',
     PREREQ_PM         => {
-	    'Class::Accessor::Fast'	=> undef,
+	'Glib'	=> '1.140',
+	'Gtk2'	=> '1.140',
+	'Cairo'	=> '1.01',
+	'Math::Trig'	=> undef,
     }, # e.g., Module::Name => 1.1
     'EXE_FILES'       => [qw(
     )],
