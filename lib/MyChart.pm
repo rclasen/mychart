@@ -529,8 +529,9 @@ sub draw {
 
 	# get data bounds
 	# no caching, needs to be rebuilt on $source or $scale->bounds update
-	foreach my $scale ( values %{$self->{scale}} ){
-		$scale->get_bounds;
+	while( my( $scname, $scale ) = each %{$self->{scale}} ){
+		my @b = $scale->get_bounds;
+		#print STDERR "bounds $scname: @b\n"; # TODO if $debug
 	}
 	
 	# layout

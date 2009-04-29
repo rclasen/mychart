@@ -25,7 +25,7 @@ sub new {
 
 	}, ref $proto || $proto;
 
-	$self->set_data( @a{qw/ list min max delta /} ) if $a{list};
+	$self->set_data( @{$a}{qw/ list min max delta /} ) if $a->{list};
 	$self;
 }
 
@@ -34,17 +34,19 @@ sub set_data {
 
 	# automagically determin min+max
 	if( ! defined $min || !defined $max ){
+		$min ||= {};
+		$max ||= {};
 		foreach my $c ( @$list ){
 			foreach my $f ( keys %$c ){
 				defined( my $v = $c->{$f} )
 					or next;
 
-				if( ! defined $min{$f} || $min{$f} > $v ){
-					$min{$f} = $v;
+				if( ! defined $min->{$f} || $min->{$f} > $v ){
+					$min->{$f} = $v;
 				}
 
-				if( ! defined $max{$f} || $max{$f} < $v ){
-					$max{$f} = $v;
+				if( ! defined $max->{$f} || $max->{$f} < $v ){
+					$max->{$f} = $v;
 				}
 			}
 		}
