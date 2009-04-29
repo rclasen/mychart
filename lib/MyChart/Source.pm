@@ -13,21 +13,43 @@ use warnings;
 sub new {
 	my( $proto, $a ) = @_;
 
-	bless { 
+	$a ||= {};
+	my $self = bless { 
+		%$a,
+
 		list	=> [],
 
 		min	=> {},
 		max	=> {},
 		delta	=> {},
 
-		$a ? %$a : (),
 	}, ref $proto || $proto;
+
+	$self->set_data( @a{qw/ list min max delta /} ) if $a{list};
+	$self;
 }
 
 sub set_data {
 	my( $self, $list, $min, $max, $delta ) = @_;
-	#TODO: sort data?
-	#TODO: automagically determin min+max
+
+	# automagically determin min+max
+	if( ! defined $min || !defined $max ){
+		foreach my $c ( @$list ){
+			foreach my $f ( keys %$c ){
+				defined( my $v = $c->{$f} )
+					or next;
+
+				if( ! defined $min{$f} || $min{$f} > $v ){
+					$min{$f} = $v;
+				}
+
+				if( ! defined $max{$f} || $max{$f} < $v ){
+					$max{$f} = $v;
+				}
+			}
+		}
+	}
+
 	$self->{list} = $list;
 	$self->{min} = $min;
 	$self->{max} = $max;
