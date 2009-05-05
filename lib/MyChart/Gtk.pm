@@ -9,8 +9,10 @@ use MyChart;
 # TODO: send "clicked" event per Plot
 # TODO: tooltips with user coordinates when hovering over plots
 # TODO: range selection (horiz + vertical)
+
 # TODO: zoom to selection
-# TODO: show/hide individual plots
+# TODO: provide GtkScrollable Interface.
+
 
 use Glib::Object::Subclass
 	'Gtk2::DrawingArea',
@@ -19,8 +21,13 @@ use Glib::Object::Subclass
 		expose_event	=> \&do_expose_event,
 		configure_event	=> \&do_configure_event,
 	},
-#	properties => [ # TODO
-#	],
+	properties => [
+		Glib::ParamSpec->scalar(
+			'chart',
+			'MyChart object',
+			'reference to MyChart object to use for plotting',
+			[qw/ readable writable /]),
+	],
 ;
 
 use constant MIN_GRAPH_WIDTH	=> 150;
@@ -30,20 +37,21 @@ sub INIT_INSTANCE {
 	my $self = shift;
 
 	$self->{chart} = undef;
-	$self->{chart_class} = 'MyChart';
 
 	# TODO: gtk colors from 'gtk-color-hash'
-	my $set = $self->get_settings;
-	my $font = $set->get( 'gtk-font-name' );
-	$self->{chart_defaults} = {
-		title_font	=> $font,
-		legend_font	=> $font,
-		# default scale fonts:
-		label_font	=> $font,
-		scale_label_font	=> $font,
-	};
+	# TODO: gtk fonts
+	#my $set = $self->get_settings;
+	#my $font = $set->get( 'gtk-font-name' );
+	#$self->{chart_defaults} = {
+	#	title_font	=> $font,
+	#	legend_font	=> $font,
+	#	# default scale fonts:
+	#	label_font	=> $font,
+	#	scale_label_font	=> $font,
+	#};
 
 	$self->{pixmap} = undef;
+	$self->{context} = undef,
 	$self->{need_draw} = 1;
 
 
@@ -51,6 +59,17 @@ sub INIT_INSTANCE {
 		exposure-mask
 		leave-notify-mask
 	/]);
+}
+
+sub SET_PROPERTY {
+	my( $self, $pspec, $newval ) = @_;
+
+	my $n = $pspec->get_name;
+	if( $n eq 'chart' ){
+		$self->set_chart( $newval );
+	} else {
+		$self->{$n} = $newval;
+	}
 }
 
 sub do_size_request {
@@ -86,17 +105,34 @@ sub do_configure_event {
 	my $w = $self->allocation->width;
 	my $h = $self->allocation->height;
 
-	$self->{pixmap} = Gtk2::Gdk::Pixmap->new( $self->window,
-		$w, $h, -1 );
+	$self->{pixmap} = Gtk2::Gdk::Pixmap->new( $self->window, $w, $h, -1 );
+	my $cr = $self->{context} = Gtk2::Gdk::Cairo::Context->create( $self->{pixmap} );
+	$cr->set_source_rgb( 1,1,1 );
+	$cr->paint;
 
-	$self->chart->set_context(
-		Gtk2::Gdk::Cairo::Context->create( $self->{pixmap} ),
-		$w, $h,
-		);
-
-	$self->queue_redraw;
+	$self->chart_context;
 
 	TRUE; # stop other
+}
+
+sub chart {
+	$_[0]{chart};
+}
+
+sub set_chart {
+	my( $self, $chart ) = @_;
+
+	if( $self->{chart} ){
+		$self->{chart}->signal_handler_disconnect(
+			$self->{chart_redraw} );
+	}
+
+	$self->{chart} = $chart;
+	$self->{chart_redraw} = $chart->signal_connect( redraw => sub {
+		$self->queue_redraw;
+	} );
+
+	$self->chart_context;
 }
 
 sub queue_redraw {
@@ -105,58 +141,31 @@ sub queue_redraw {
 	$self->queue_draw;
 }
 
-sub chart_init {
-	my $self = shift;
+sub chart_context {
+	my( $self ) = @_;
 
-	"$self->{chart_class}"->new( $self->{chart_defaults} );
+	return unless $self->{pixmap};
+	my $chart = $self->chart or return;
+
+	my $w = $self->allocation->width;
+	my $h = $self->allocation->height;
+
+	$chart->set_context(
+		$self->{context},
+		$w, $h,
+		);
+
+	$self->queue_redraw;
 }
 
 sub chart_draw {
 	my( $self ) = @_;
 
 	return unless $self->{pixmap};
-	$self->chart->draw;
+	my $chart = $self->chart or return;
+
+	$chart->draw;
 	$self->{need_draw} = 0;
 }
-
-sub chart {
-	my( $self ) = @_;
-
-	$self->{chart} ||= $self->chart_init;
-}
-
-sub add_scale {
-	my $self = shift;
-
-	$self->chart->add_scale( @_ );
-	$self->queue_redraw;
-}
-
-sub get_scale {
-	my $self = shift;
-
-	$self->chart->get_scale( @_ );
-}
-
-sub add_plot {
-	my $self = shift;
-
-	$self->chart->add_plot( @_ );
-	$self->queue_redraw;
-}
-
-sub get_plot {
-	my $self = shift;
-
-	$self->chart->get_plot( @_ );
-}
-
-sub set_bounds {
-	my( $self, $name, $min, $max ) = @_;
-
-	$self->chart->set_bounds( $name, $min, $max );
-	$self->queue_redraw;
-}
-
 
 1;

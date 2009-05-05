@@ -25,13 +25,15 @@ use MyChart::Plot::Area;
 # TODO: stacked lines + areas
 # TODO: pie charts
 
+# TODO: show/hide individual plots
 # TODO: provide "device_to_user" mapping function
 # TODO: provide function to check if device_coord is part of graph
 # TODO: selections: none, single cursor, range
 
-# TODO: provide GtkScrollable Interface. Draw "full" scale + plot to
-# backing store and copy only viewport area to Widget.
+# TODO: support zoom: Draw "full" scale + plot to backing store and copy
+# only viewport area to Widget.
 
+#
 # default colors to use for plots:
 our @colors = (
 	[1,0,0],	# red
@@ -85,6 +87,10 @@ sub new {
 
 		$a ? %$a : (),
 
+		sighandler => {		# coderefs to call for some events
+			redraw	=> undef,	# chart needs redraw
+		},
+
 		plot	=> [],		# list of MyChart::Plot objects
 
 		defscale => [
@@ -115,6 +121,25 @@ sub new {
 	}, ref $proto || $proto;
 }
 
+# TODO: do not re-invent Glib Signals
+sub signal_connect {
+	my( $self, $sig, $code ) = @_;
+	$self->{sighandler}{$sig} = $code;
+	$sig; # TODO: $id == $sig is a hack
+}
+
+sub signal_handler_disconnect {
+	my( $self, $id ) = @_;
+	$self->{sighandler}{$id} = undef; # TODO: $id == $sig is a hack
+}
+
+sub signal_emit {
+	my( $self, $sig ) = @_;
+
+	my $ref = $self->{sighandler}{$sig} or return;
+	&$ref( $self );
+}
+
 sub set_context {
 	my( $self, $context, $w, $h ) = @_;
 
@@ -127,6 +152,7 @@ sub set_context {
 
 	# clear caches
 	$self->{layout} = undef;
+	$self->signal_emit('redraw');
 }
 
 sub add_scale {
@@ -187,6 +213,7 @@ sub add_scale {
 	# clear caches
 	#$self->{bounds} = undef;
 	$self->{layout} = undef;
+	$self->signal_emit('redraw');
 }
 
 sub get_scale {
@@ -205,6 +232,7 @@ sub set_bounds {
 
 	# clear caches
 	#$self->{bounds} = undef;
+	$self->signal_emit('redraw'); # TODO: move to scale
 }
 
 sub flush_bounds {
@@ -213,6 +241,7 @@ sub flush_bounds {
 	my $scale = $self->get_scale($name)
 		or croak "no such scale: $name";
 	$scale->flush_bounds;
+	$self->signal_emit('redraw'); # TODO: move to scale
 }
 
 sub flush_bounds_all {
@@ -221,6 +250,7 @@ sub flush_bounds_all {
 	foreach my $scale ( values %{ $self->{scale} } ){
 		$scale->flush_bounds;
 	}
+	$self->signal_emit('redraw'); # TODO: move to scale
 }
 
 sub add_plot {
@@ -276,8 +306,10 @@ sub add_plot {
 	}
 
 	# clear caches
-	$self->{layout} = undef;
 	#$self->{bounds} = undef;
+	$self->flush_bounds_all; # TODO: move to scale
+	$self->{layout} = undef;
+	$self->signal_emit('redraw');
 }
 
 sub get_plot {
@@ -293,6 +325,7 @@ sub flush_plot_all {
 	foreach my $plot ( @{ $self->{plot} } ){
 		$plot->flush;
 	}
+	$self->signal_emit('redraw'); # TODO: move to plot
 }
 
 

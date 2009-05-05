@@ -1,3 +1,10 @@
+mychart (0.03) unstable; urgency=low
+
+  * MyChart now emits a signal when it needs a redraw
+  * changed MyChart::Gtk accept a pre-build chart as property
+
+ -- Rainer Clasen <bj@zuto.de>  Tue,  5 May 2009 18:12:47 +0200
+
 mychart (0.02) unstable; urgency=low
 
   * initial release
