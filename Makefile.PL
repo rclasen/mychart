@@ -4,7 +4,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME              => 'MyChart',
-    VERSION      => '0.02',
+    VERSION_FROM      => 'lib/MyChart.pm',
     PREREQ_PM         => {
 	'Glib'	=> '1.140',
 	'Gtk2'	=> '1.140',

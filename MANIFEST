@@ -15,7 +15,6 @@ lib/MyChart/Scale.pm
 lib/MyChart/Scale/Horizontal.pm
 lib/MyChart/Scale/Vertical.pm
 lib/MyChart/Source.pm
-lib/MyChart/Source/Workout.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files

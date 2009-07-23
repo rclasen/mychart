@@ -7,7 +7,52 @@
 # distribution.
 #
 
+
+=head1 NAME
+
+MyChart - draw chart graphics to a cairo context
+
+=head1 SYNOPSIS
+
+ my $chart = MyChart->new({
+ 	context	=> $cairo_context, 
+	width	=> $width,
+	height	=> $height,
+ });
+
+ $chart->add_scale( 
+	x	=> {
+		orientation	=> 0,
+	}, 
+	
+	y => { },
+ );
+
+ my $src = MyChart::Source->new({
+	list	=> [
+		{ x => 0, y => 0, },
+		{ x => 1, y => 1, },
+		{ x => 2, y => 4, },
+		{ x => 3, y => 9, },
+	],
+ });
+
+ $chart->add_plot( {
+	source	=> $src,
+	xcol	=> 'x',
+	ycol	=> 'y',
+ });
+
+ $chart->draw;
+
+=head1 DESCRIPTION
+
+Draw graphs to a Cairo Context.
+
+=cut
+
 # TODO: pod
+
 use strict;
 use warnings;
 
@@ -18,8 +63,8 @@ use Carp;
 use MyChart::Source;
 use MyChart::Scale::Horizontal;
 use MyChart::Scale::Vertical;
-use MyChart::Plot::Line;
-use MyChart::Plot::Area;
+
+our $VERSION = '0.03';
 
 # TODO: bargraphs
 # TODO: stacked lines + areas
@@ -282,7 +327,8 @@ sub add_plot {
 		# setup plot
 		my $type = $d->{type} || 'Line';
 
-		# TODO: auto-load plot module
+		eval "require MyChart::Plot::$type"
+			or croak "cannot load module for plot type $type: $@";
 		my $plot = "MyChart::Plot::$type"->new({
 			# chart defaults:
 			line_style	=> $self->{line_style},
@@ -331,33 +377,35 @@ sub flush_plot_all {
 
 =pod
 
-+----------------------------------------------------------------------+
-|\  margin t                                                          /|
-| +------------------------------------------------------------------+ |
-| | title                                                            | |
-| +------------------------------------------------------------------+ |
-| |\  legend t                                                      /| |
-|m| +--------------------------------------------------------------+ |m|
-|a| |    scale2      +         value              -                | |a|
-|r|l|                -value                       +       scale1   |l|r|
-|g|e|      .      .     |t       |t                  .      .      |e|g|
-|i|g|scale2|scale1|     |        |                   |scale1|      |g|i|
-|n|e|  +   |  +   |  +--+--------+----------------+  |  +   |  -   |e|n|
-| |n|      |value |--+                            |  |      |      |n| |
-|l|d|      |      |t |                            +--|value |      |d|r|
-| | |      |      |  |                            | t|      |      | | |
-| |l|value |      |--+                            +--|      |value |r| |
-| | |      |      |t |                            | t|      |      | | |
-| | |  -   |  -   |  +----+---------+-------------+  |  -   |  +   | | |
-| | |      |      |       |         |                |      |scale2| | |
-| | |      .      .       |t        |t               .      .      | | |
-| | |    scale1         value                                      | | |
-| | |    scale2                   value                            | | |
-| | +--------------------------------------------------------------+ | |
-| |/  legend b                                                      \| |
-| +------------------------------------------------------------------+ |
-|/  margin b                                                          \|
-+----------------------------------------------------------------------+
+MyChart anatomy:
+
+ +----------------------------------------------------------------------+
+ |\  margin t                                                          /|
+ | +------------------------------------------------------------------+ |
+ | | title                                                            | |
+ | +------------------------------------------------------------------+ |
+ | |\  legend t                                                      /| |
+ |m| +--------------------------------------------------------------+ |m|
+ |a| |    scale2      +         value              -                | |a|
+ |r|l|                -value                       +       scale1   |l|r|
+ |g|e|      .      .     |t       |t                  .      .      |e|g|
+ |i|g|scale2|scale1|     |        |                   |scale1|      |g|i|
+ |n|e|  +   |  +   |  +--+--------+----------------+  |  +   |  -   |e|n|
+ | |n|      |value |--+                            |  |      |      |n| |
+ |l|d|      |      |t |                            +--|value |      |d|r|
+ | | |      |      |  |                            | t|      |      | | |
+ | |l|value |      |--+                            +--|      |value |r| |
+ | | |      |      |t |                            | t|      |      | | |
+ | | |  -   |  -   |  +----+---------+-------------+  |  -   |  +   | | |
+ | | |      |      |       |         |                |      |scale2| | |
+ | | |      .      .       |t        |t               .      .      | | |
+ | | |    scale1         value                                      | | |
+ | | |    scale2                   value                            | | |
+ | | +--------------------------------------------------------------+ | |
+ | |/  legend b                                                      \| |
+ | +------------------------------------------------------------------+ |
+ |/  margin b                                                          \|
+ +----------------------------------------------------------------------+
 
 =cut
 
@@ -674,3 +722,15 @@ sub draw {
 }
 
 1;
+
+=head1 SEE ALSO
+
+MyChart::Source, MyChart::Scale, MyChart::Plot, MyChart::Gtk,
+Gtk2::Gdk::Cairo::Context
+
+=head1 AUTHOR
+
+Rainer Clasen
+
+=cut
+

@@ -1,4 +1,4 @@
-*.debhelper
+*.debhelper*
 files
 *.substvars
 mychart
