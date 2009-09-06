@@ -8,7 +8,7 @@ Standards-Version: 3.7.2
 
 Package: mychart
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends}, 
+Depends: ${perl:Depends}, ${misc:Depends}, libglib-perl, libgtk2-perl, libcairo-perl
 Description: mychart graphing library
  Perl library for fast plotting of charts/graph using the Cairo
  graphics library. It supports all of cairo's output targets and comes

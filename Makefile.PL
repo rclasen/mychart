@@ -6,6 +6,7 @@ WriteMakefile(
     NAME              => 'MyChart',
     VERSION_FROM      => 'lib/MyChart.pm',
     PREREQ_PM         => {
+	# update debian/control, too!
 	'Glib'	=> '1.140',
 	'Gtk2'	=> '1.140',
 	'Cairo'	=> '1.01',
