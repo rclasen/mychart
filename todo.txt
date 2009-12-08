@@ -1,4 +1,6 @@
 
+- use libclutter for interactive use?
+
 - draw to user-specified cairo surface (so the user has full choice of
   output)
 - has to be *fast*
