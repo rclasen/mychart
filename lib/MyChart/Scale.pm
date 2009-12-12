@@ -7,7 +7,7 @@ sub new {
 	my( $proto, $a ) = @_;
 
 	# ATTENTION: some defaults are overwritten from MyChart::add_scale()
-	bless { 
+	bless {
 		position	=> 1,		# 0=zero, 1=left/bottom, 2=right/top, undef=hide
 		inside		=> undef,	# undef=auto, 0=outside 1=inside
 
@@ -111,10 +111,10 @@ sub build_bounds {
 			my $dim = $self->orientation;
 			$dim = $dim ? 0 : 1 if $plot->rotate;
 
-			my( $pmin, $pmax, $pdelta ) = 
+			my( $pmin, $pmax, $pdelta ) =
 				$plot->get_source_bounds( $dim );
 
-			#print STDERR ref($self) 
+			#print STDERR ref($self)
 			#	."::build_bounds: plot $pmin, $pmax, $pdelta\n";
 
 			$pmin -= $pdelta;
@@ -161,7 +161,7 @@ sub build_fmt {
 
 	if( ! defined $fmt ){
 		# fall back to perls default stringification
-		return sub { $_[0] }; 
+		return sub { $_[0] };
 
 	} elsif( ! ref $fmt ){
 		return sub { sprintf( $fmt, $_[0] ) };
@@ -230,7 +230,7 @@ sub build_label_dims {
 	my @size = map {
 		[ $self->build_label( $_ )->get_pixel_size ];
 
-	} ref $self->{label_fmt} eq 'ARRAY' 
+	} ref $self->{label_fmt} eq 'ARRAY'
 		? @{$self->{label_fmt}}
 		: $self->get_bounds;
 
@@ -238,7 +238,7 @@ sub build_label_dims {
 	foreach my $v ( @size ){
 		foreach my $d ( 0, 1 ){
 			if( ! defined($max[$d]) || $max[$d] < $v->[$d] ){
-				$max[$d] = $v->[$d] 
+				$max[$d] = $v->[$d]
 			}
 		}
 	}
@@ -247,7 +247,7 @@ sub build_label_dims {
 
 	# ( along_axis, orthogonal_to_axis )
 	$self->{label_rotate}
-		? reverse @max 
+		? reverse @max
 		: @max;
 }
 
@@ -256,7 +256,7 @@ sub build_space {
 
 	$self->{label_dims} ||= [ $self->build_label_dims ];
 
-	return [ $self->{tic_len} 
+	return [ $self->{tic_len}
 		+ int( 1.1* $self->{label_dims}[1] )
 		+ $self->{label_space},
 		int( 1.1* $self->{label_dims}[0] / 2 ),
@@ -271,7 +271,7 @@ sub get_space {
 	@{$self->{space}};
 }
 
-# TODO: deal with multiple scales on same side of axes. 
+# TODO: deal with multiple scales on same side of axes.
 
 # calculate tics (amount, positions)
 sub build_ticlist {
@@ -291,7 +291,7 @@ sub build_ticlist {
 			$val >= $min && $val <= $max
 				or next;
 
-			my $lval = $labels 
+			my $lval = $labels
 				? $labels->[$i]
 				: $val;
 			defined $lval or next;

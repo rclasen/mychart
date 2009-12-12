@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2008 Rainer Clasen
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms described in the file LICENSE included in this
 # distribution.
@@ -17,7 +17,7 @@ use Math::Trig qw/ pi /;
 sub new {
 	my( $proto, $a ) = @_;
 
-	bless { 
+	bless {
 		# config
 		legend	=> undef,	# text to print in legend
 		color	=> [ 0,0,0 ],
@@ -129,11 +129,11 @@ sub build_matrix {
 	# device coords:
 	my( $l, $t, $r, $b ) = @{ $self->{plot_size} };
 
-	my @d = ( 
+	my @d = (
 		[ $l, $r ],
 		[ $b, $t ],
 	);
-	my @r = $self->{rotate} ? reverse @d : @d; 
+	my @r = $self->{rotate} ? reverse @d : @d;
 
 	# data coords:
 	my @u = map { { %$_ }; } @{$self->{bounds}};
@@ -163,7 +163,7 @@ sub build_matrix {
 	$cr->scale( @scale );
 
 	# data offset:
-	$cr->translate( -$u[0]{min} + $u[0]{delta}, 
+	$cr->translate( -$u[0]{min} + $u[0]{delta},
 		-$u[1]{min} + $u[1]{delta} );
 
 	my $matrix = $cr->get_matrix;

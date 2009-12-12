@@ -27,7 +27,7 @@ sub draw {
 	} elsif( $self->{position} == 1 ){
 		$y1 = $b;
 		$ttb = ! $self->{inside};
-	
+
 	} else { # position == 0
 		# TODO: zero axis scale
 
@@ -68,7 +68,7 @@ sub draw {
 	foreach my $tic ( @$tics ){
 		my $label = $tic->[2];
 		my( $x, $w, $h );
-		
+
 		if( $self->{label_rotate} ){
 			( $h, $w ) = $label->get_pixel_size;
 			$x = $l + $tic->[0] + $w/2;

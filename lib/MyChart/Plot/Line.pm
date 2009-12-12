@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2008 Rainer Clasen
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms described in the file LICENSE included in this
 # distribution.
@@ -19,7 +19,7 @@ sub new {
 	# config
 	$self->{line_width}	||= 1;
 	$self->{line_style}	||= 0;	# 0=solid, 1=dashed, 2=dotted, 3=dot-dash
-	$self->{line_style}	%= 4; 
+	$self->{line_style}	%= 4;
 	$self->{skip_undef}	||= 0;
 
 	$self;
@@ -71,7 +71,7 @@ sub do_plot {
 		$cr->set_dash( 0, 0, 3 );
 
 	}
-	
+
 	$cr->set_line_width( $self->{line_width} );
 	$cr->set_line_join( 'round' );
 	$cr->set_line_cap( 'round' );

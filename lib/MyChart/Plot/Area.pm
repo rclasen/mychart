@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2008 Rainer Clasen
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms described in the file LICENSE included in this
 # distribution.
@@ -59,7 +59,7 @@ sub build_path_loh {
 sub do_plot {
 	my( $self ) = @_;
 
-	
+
 	my $cr = $self->{context};
 
 	my $dat = $self->{source}->list;
@@ -67,7 +67,7 @@ sub do_plot {
 		# TODO: workaround ->fill being killed by xserver for unknown reason
 
 		my( $l, $t, $r, $b ) = @{ $self->{plot_size} };
-		my @d = ( 
+		my @d = (
 			[ $l, $r ],
 			[ $b, $t ],
 		);
@@ -77,10 +77,10 @@ sub do_plot {
 		}
 
 		my @coord = $self->{rotate} ? (
-			$d[0][0], $d[1][0], 
+			$d[0][0], $d[1][0],
 			$d[0][1], $d[1][0],
 		) : (
-			$d[0][0], $d[1][0], 
+			$d[0][0], $d[1][0],
 			$d[0][0], $d[1][1],
 		);
 

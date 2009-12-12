@@ -89,7 +89,7 @@ sub do_expose_event {
 		$self->chart_draw;
 	}
 
-	$self->window->draw_drawable( 
+	$self->window->draw_drawable(
 		$self->style->fg_gc( $self->state ),
 		$self->{pixmap},
 		$event->area->x, $event->area->y,

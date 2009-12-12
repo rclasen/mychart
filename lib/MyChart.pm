@@ -1,7 +1,7 @@
 #!/bin/perl -w
 #
 # Copyright (c) 2008 Rainer Clasen
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms described in the file LICENSE included in this
 # distribution.
@@ -15,16 +15,16 @@ MyChart - draw chart graphics to a cairo context
 =head1 SYNOPSIS
 
  my $chart = MyChart->new({
- 	context	=> $cairo_context, 
+ 	context	=> $cairo_context,
 	width	=> $width,
 	height	=> $height,
  });
 
- $chart->add_scale( 
+ $chart->add_scale(
 	x	=> {
 		orientation	=> 0,
-	}, 
-	
+	},
+
 	y => { },
  );
 
@@ -94,7 +94,7 @@ our @colors = (
 sub new {
 	my( $proto, $a ) = @_;
 
-	bless { 
+	bless {
 		context	=> undef,	# cairo context to use
 		width	=> undef,	# cairo surface width
 		height	=> undef,	# cairo surface hight
@@ -107,7 +107,7 @@ sub new {
 		# translucent
 		bg		=> [0.9, 0.9, 0.9],
 		bg_alpha	=> 1,
-		chart_bg	=> [1,1,1],	
+		chart_bg	=> [1,1,1],
 		chart_bg_alpha	=> 1,
 		axis_fg		=> [0,0,0],
 		border_fg	=> [0,0,0],
@@ -211,7 +211,7 @@ sub add_scale {
 		my $orient;
 		if( ! exists $d->{orientation} || ! defined $d->{orientation} ){
 			$orient = 1;
-			
+
 		} elsif( $d->{orientation} < 0 || $d->{orientation} > 1 ){
 			croak "invalid orientation $d->{orientation}";
 
@@ -225,7 +225,7 @@ sub add_scale {
 
 		} elsif( ! defined $d->{position} ){
 			$pos = 3;
-		
+
 		} elsif( $d->{position} > 3 || $d->{position} < 0 ){
 			croak "invalid axis position $d->{position}";
 
@@ -246,7 +246,7 @@ sub add_scale {
 			position	=> $pos,
 			context		=> $self->{context},
 		);
-		my $scale = $self->{scale}{$sname} = $orient == 0 
+		my $scale = $self->{scale}{$sname} = $orient == 0
 			? MyChart::Scale::Horizontal->new( \%a )
 			: MyChart::Scale::Vertical->new( \%a );
 
@@ -499,14 +499,14 @@ sub build_layout {
 	if( $self->{legend} ){
 		my $height = 10; # TODO legend size
 		my $width = 100; # TODO legend size
-	
-		if( ref $self->{legend} eq 'ARRAY' 
+
+		if( ref $self->{legend} eq 'ARRAY'
 			&& 4 == @{$self->{legend}} ){
 
 			$layout->{legend} = [
 				$self->{legend}[0],
 				$self->{legend}[1],
-				$self->{legend}[2] 
+				$self->{legend}[2]
 					|| $self->{legend}[0] + $width,
 				$self->{legend}[3]
 					|| $self->{legend}[1] + $height,
@@ -570,7 +570,7 @@ sub build_layout {
 	foreach my $child ( values %{$self->{scale}}, @{$self->{plot}} ){
 		$child->set_plot_size( $lplot );
 	}
-	
+
 	$layout;
 }
 
@@ -593,13 +593,13 @@ sub draw_chart_bg {
 	my $cr = $self->{context};
 	my $layout = $self->{layout};
 
-	$cr->rectangle( 
+	$cr->rectangle(
 		$layout->{plot}[0],
 		$layout->{plot}[1],
 		$layout->{plot}[2] - $layout->{plot}[0],
 		$layout->{plot}[3] - $layout->{plot}[1] );
 
-	$cr->set_source_rgba( 
+	$cr->set_source_rgba(
 		@{$self->{chart_bg}}, $self->{chart_bg_alpha} );
 	$cr->fill;
 }
@@ -614,7 +614,7 @@ sub draw {
 		my @b = $scale->get_bounds;
 		#print STDERR "bounds $scname: @b\n"; # TODO if $debug
 	}
-	
+
 	# layout
 	my( $cr, $w, $h ) = @{$self}{qw(context width height )};
 	my $layout = $self->{layout} ||= $self->build_layout;
@@ -640,7 +640,7 @@ sub draw {
 		$cr->set_source_rgb( @{$self->{title_fg}} );
 		my( $lw, $lh ) = $self->{title_layout}->get_pixel_size;
 
-		$cr->move_to( 
+		$cr->move_to(
 			($layout->{title}[0] + $layout->{title}[2] - $lw)/2,
 			($layout->{title}[1] + $layout->{title}[3] - $lh)/2,
 		);
@@ -656,7 +656,7 @@ sub draw {
 	$cr->set_line_width( 1 );
 	$cr->set_source_rgb( @{$self->{axis_fg}} );
 	if( $self->{plot_box} ){
-		$cr->rectangle( 
+		$cr->rectangle(
 			$layout->{plot}[0] -0.5,
 			$layout->{plot}[1] -0.5,
 			$layout->{plot}[2] - $layout->{plot}[0] + 1,
@@ -699,7 +699,7 @@ sub draw {
 	# clip to plot region (when zooming / scale bounds < source bounds)
 	# and draw plots
 	$cr->save;
-	$cr->rectangle( 
+	$cr->rectangle(
 		$layout->{plot}[0],
 		$layout->{plot}[1],
 		$layout->{plot}[2] - $layout->{plot}[0],
