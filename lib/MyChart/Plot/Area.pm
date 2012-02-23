@@ -14,12 +14,17 @@ use warnings;
 sub new {
 	my( $proto, $a ) = @_;
 
-	$proto->SUPER::new({
-		color_alpha	=> 0.6,
-		color_alpha2	=> 0.2,
+	my $self = $proto->SUPER::new({
+		fill_color	=> undef,
+		fill_alpha1	=> 0.6,
+		fill_alpha2	=> 0.2,
 
 		%$a,
 	});
+
+	$self->{fill_color} ||= $self->{color};
+
+	$self;
 }
 
 sub build_path_loh {
@@ -85,13 +90,15 @@ sub do_plot {
 		);
 
 		my $pat = Cairo::LinearGradient->create( @coord );
-		$pat->add_color_stop_rgba( 0, @{$self->{color}}, $self->{color_alpha} );
-		$pat->add_color_stop_rgba( 1, @{$self->{color}}, $self->{color_alpha2} );
+		$pat->add_color_stop_rgba( 0, @{$self->{fill_color}},
+			$self->{fill_alpha1} );
+		$pat->add_color_stop_rgba( 1, @{$self->{fill_color}},
+			$self->{fill_alpha2} );
 		$cr->set_source( $pat );
 		$cr->fill_preserve;
 	}
 
-	$cr->set_source_rgb( @{$self->{color}} );
+	$cr->set_source_rgba( @{$self->{color}}, $self->{alpha} );
 	$cr->set_line_width( $self->{line_width} );
 	$cr->stroke;
 }

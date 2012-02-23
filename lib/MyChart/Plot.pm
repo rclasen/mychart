@@ -21,6 +21,7 @@ sub new {
 		# config
 		legend	=> undef,	# text to print in legend
 		color	=> [ 0,0,0 ],
+		alpha	=> 0.7,
 
 		# data source properties
 		source	=> undef,
