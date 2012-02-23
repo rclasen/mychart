@@ -84,8 +84,8 @@ sub draw {
 		$cr->save;
 		$cr->rotate( pi / 2 ) if $self->{label_rotate};
 		$cr->set_source_rgb( @{$self->{label_fg}} );
-		Gtk2::Pango::Cairo::update_layout( $cr, $label );
-		Gtk2::Pango::Cairo::show_layout( $cr, $label );
+		Pango::Cairo::update_layout( $cr, $label );
+		Pango::Cairo::show_layout( $cr, $label );
 		$cr->restore;
 
 	}

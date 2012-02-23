@@ -32,20 +32,20 @@ sub build_path_loh {
 	my @col = ( $self->{xcol}, $self->{ycol} );
 	my $dat = $self->{source}->list;
 
-	my $init = 0;
+	my $draw = 0;
 
 	foreach( @$dat ){
 		my @val = @{$_}{@col};
-		next unless defined $val[0];
 
+		if( ! defined $val[0]
+			|| ! defined $val[1] ){
 
-		if( ! defined $val[1] ){
 			next if $self->{skip_undef};
-			$init = 0;
+			$draw = 0;
 
-		} elsif( ! $init ){
+		} elsif( ! $draw ){
 			$cr->move_to( @val );
-			++$init;
+			$draw = 1;
 
 		} else {
 			$cr->line_to( @val );
@@ -75,7 +75,7 @@ sub do_plot {
 	$cr->set_line_width( $self->{line_width} );
 	$cr->set_line_join( 'round' );
 	$cr->set_line_cap( 'round' );
-	$cr->set_source_rgb( @{$self->{color}} );
+	$cr->set_source_rgba( @{$self->{color}}, $self->{alpha}  );
 	$cr->stroke;
 }
 

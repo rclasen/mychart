@@ -209,8 +209,8 @@ sub build_pango {
 	$self->{context}->save;
 	$self->{context}->rotate( 3.141 / 2 );
 
-	my $fd = Gtk2::Pango::FontDescription->from_string( $font );
-	my $l = Gtk2::Pango::Cairo::create_layout( $self->{context} );
+	my $fd = Pango::FontDescription->from_string( $font );
+	my $l = Pango::Cairo::create_layout( $self->{context} );
 	$l->set_font_description( $fd );
 	$l->set_text( $val );
 

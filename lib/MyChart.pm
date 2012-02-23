@@ -453,8 +453,8 @@ sub get_scales_size {
 sub build_pango {
 	my( $self, $font, $text ) = @_;
 
-	my $fd = Gtk2::Pango::FontDescription->from_string( $font );
-	my $l = Gtk2::Pango::Cairo::create_layout( $self->{context} );
+	my $fd = Pango::FontDescription->from_string( $font );
+	my $l = Pango::Cairo::create_layout( $self->{context} );
 	$l->set_font_description( $fd );
 	$l->set_text( $text );
 	$l;
@@ -644,7 +644,7 @@ sub draw {
 			($layout->{title}[0] + $layout->{title}[2] - $lw)/2,
 			($layout->{title}[1] + $layout->{title}[3] - $lh)/2,
 		);
-		Gtk2::Pango::Cairo::show_layout( $cr, $self->{title_layout} );
+		Pango::Cairo::show_layout( $cr, $self->{title_layout} );
 	}
 
 	# plot / chart area:  backround

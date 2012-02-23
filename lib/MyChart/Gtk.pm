@@ -106,7 +106,8 @@ sub do_configure_event {
 	my $h = $self->allocation->height;
 
 	$self->{pixmap} = Gtk2::Gdk::Pixmap->new( $self->window, $w, $h, -1 );
-	my $cr = $self->{context} = Gtk2::Gdk::Cairo::Context->create( $self->{pixmap} );
+	my $cr = $self->{context} = Gtk2::Gdk::Cairo::Context->create( $self->{pixmap} )
+		or croak "failed to create cairo context";
 	$cr->set_source_rgb( 1,1,1 );
 	$cr->paint;
 
